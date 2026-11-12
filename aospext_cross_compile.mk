@@ -128,6 +128,12 @@ $(AOSPEXT_INTERNAL_BUILD_TARGET): $(AOSP_FLAGS_DIR_OUT)/.sharedlib.timestamp
 		$(AOSPEXT_ABS_OUT_DIR)/project_specific.mk
 
 	# Build project
-	export PATH=$(RUST_BIN_DIR_ABS):$(AOSP_ABSOLUTE_PATH)/$(LLVM_PREBUILTS_PATH):$$(cat $(OUT_DIR)/.path_interposer_origpath):$(AOSP_ABSOLUTE_PATH)/prebuilts/mesa-build-deps && make -C $(AOSPEXT_ABS_OUT_DIR) install
+	# bindgen must use one host LLVM for both clang and libclang: mixing it with the
+	# prebuilt clang on PATH breaks C11 atomics, and bindgen 0.69 drops bitfield
+	# accessors with LLVM 22.
+	export PATH=$(RUST_BIN_DIR_ABS):$(AOSP_ABSOLUTE_PATH)/$(LLVM_PREBUILTS_PATH):$$(cat $(OUT_DIR)/.path_interposer_origpath):$(AOSP_ABSOLUTE_PATH)/prebuilts/mesa-build-deps && \
+	host_llvm=$$(PATH=$$(cat $(OUT_DIR)/.path_interposer_origpath) llvm-config --prefix 2>/dev/null); \
+	if [ -n "$$host_llvm" ]; then export CLANG_PATH=$$host_llvm/bin/clang LIBCLANG_PATH=$$host_llvm/lib; fi; \
+	make -C $(AOSPEXT_ABS_OUT_DIR) install
 
 	touch $@
